@@ -1,0 +1,120 @@
+#SQL Murder Mystery!
+#Adapted By: Martin Arroyo
+
+This material was adapted from the SQL Murder Mystery by Knight Lab under Creative Commons CC BY-SA 4.0. The SQL Murder Mystery was originally created by Joon Park and Cathy He while they were Knight Lab fellows.
+
+%%capture --no-stderr
+# @title Press Play { display-mode: "form" }
+# Install `teachdb` and `coop_grader`
+print("Installing `teachdb` and its dependencies...")
+%pip install --quiet --upgrade git+https://github.com/freestackinitiative/teachingdb.git git+https://github.com/martinmarroyo/coop_grader.git
+print("Successfully installed `teachdb`")
+from teachdb.teachdb import connect_teachdb
+from coop_grader.sql_murder_mystery.check_suspect import check_suspect
+# Set configurations for notebook & load data
+con = connect_teachdb(database="sql_murder_mystery")
+
+%sql con
+
+
+#Visualize data
+
+
+%%sql
+SELECT *
+FROM information_schema.tables
+
+%%sql
+SELECT *
+FROM information_schema.columns
+LIMIT 5
+
+%%sql
+SELECT table_name, column_name, data_type
+FROM information_schema.columns
+ORDER BY table_name, column_name
+LIMIT 5
+
+
+#Begin investigation
+
+
+#Retrieve crime scene report
+%%sql
+SELECT *
+FROM crime_scene_report
+WHERE date ='20180115' AND type = 'murder' AND city = 'SQL City'
+
+#Interview of witnesses
+%%sql
+SELECT *
+FROM person
+WHERE address_street_name = 'Franklin Ave' AND name LIKE '%Annabel%'
+
+UNION ALL
+
+FROM (SELECT *
+FROM person
+WHERE address_street_name = 'Northwestern Dr'
+ORDER BY address_number desc
+LIMIT 1 ) AS last_nw
+
+%%sql
+SELECT *
+FROM interview
+WHERE person_id IN ('16371', '14887')
+
+#Use description from witnesses to track murderer
+%%sql
+SELECT *
+FROM get_fit_now_member AS m
+JOIN get_fit_now_check_in AS c
+ON m.id = c.membership_id
+WHERE membership_status = 'gold' AND check_in_date::TEXT LIKE '%0109%' AND membership_id LIKE '%48Z%'
+
+
+%%sql
+SELECT m.name
+FROM get_fit_now_member AS m
+JOIN get_fit_now_check_in AS c
+ON m.id = c.membership_id
+
+JOIN
+
+(SELECT name
+FROM person AS p
+JOIN drivers_license AS dl
+ON p.license_id = dl.id
+WHERE plate_number LIKE '%H42W%' ) AS sus
+
+ON m.name = sus.name
+
+WHERE membership_status = 'gold' AND check_in_date::TEXT LIKE '%0109%' AND membership_id LIKE '%48Z%'
+
+#Suspect is Jeremy Bowers
+
+#Jeremy isn't the head-honcho, use Jeremy to find the main culprit
+%%sql
+SELECT *
+FROM person AS p
+JOIN interview AS i
+ON p.id = i.person_id
+WHERE name = 'Jeremy Bowers'
+
+#Use Jeremy's description to find the culprit
+%%sql
+SELECT p.name
+FROM facebook_event_checkin AS fb
+JOIN person AS p
+ON p.id = fb.person_id
+JOIN drivers_license AS dl
+ON dl.id = p.license_id
+
+WHERE fb.event_name = 'SQL Symphony Concert'
+AND dl.gender = 'female'
+AND dl.car_make = 'Tesla' AND dl.car_model = 'Model S'
+AND dl.height BETWEEN 65 AND 67
+LIMIT 1
+
+#The head hancho is Miranda Priestly
+
